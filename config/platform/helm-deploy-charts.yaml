@@ -1,0 +1,20 @@
+template:
+    type: file
+    path: helm-deploy-charts.yaml
+on_failure: ROLLBACK
+ignore: false
+parameters:
+  EventBus: !stack_output platform/eventbus.yaml::EventBusName
+  GitHubAppId: "{{ environment_variable.GitHubAppId }}"
+  GithubInstallationId: "{{ environment_variable.GithubInstallationId }}"
+  GithubPrivateKey: "{{ environment_variable.GithubPrivateKey }}"
+  LayerS3ObjectVersion: "{{ environment_variable.LayerS3ObjectVersion | default('latest') }}"
+ 
+  
+stack_tags:
+    application: platform 
+    environment: platform
+    service: aws-eks-management
+    service-owner: "platform-team@example.com"
+    confidentiality: none
+    managed-by: "cloudformation-lambda-stack-deployer-github"

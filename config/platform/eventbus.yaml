@@ -1,0 +1,16 @@
+template:
+    type: file
+    path: eventbus.yaml
+on_failure: ROLLBACK
+ignore: false
+parameters:
+    OrgId: {{ environment_variable.ORGID }}
+  
+    
+stack_tags:
+    application: platform 
+    environment: platform
+    service: aws-eks-management
+    service-owner: "platform-team@example.com"
+    confidentiality: none
+    managed-by: "cloudformation-lambda-stack-deployer-github"

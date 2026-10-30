@@ -1,0 +1,143 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Lambda Triggered by Event to Dispatch GitHub Event on EKS Cluster Creation
+Parameters:
+  EventBus:
+    Type: String
+
+Resources:
+
+  GitHubDispatchRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: AllowSecretsAndLogs
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - logs:*
+                  - secretsmanager:GetSecretValue
+                Resource: "*"
+
+  LambdaFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: eks-github-dispatch
+      Handler: index.lambda_handler
+      Runtime: python3.11
+      Role: !GetAtt GitHubDispatchRole.Arn
+      Timeout: 600
+      Code:
+        ZipFile: |
+          import boto3
+          import json
+          import urllib3
+          import os
+          import logging
+
+          # Configure logging
+          logger = logging.getLogger()
+          logger.setLevel(logging.INFO)
+
+          secrets = boto3.client("secretsmanager")
+          http = urllib3.PoolManager()     
+
+          def lambda_handler(event, context):
+              logger.info("Lambda function started - Processing EKS cluster creation event")
+              cluster_name = event['detail']['requestParameters']['name']
+              region = event['region']
+              account = event['account']
+              logger.info(f"Processing cluster creation - Name: {cluster_name}, Region: {region}, Account: {account}")
+
+
+              # GitHub dispatch config
+              owner = "example-org"
+              repo = "aws-eks-management"
+              secret_name = "EKSGitHubDispatchToken"
+
+              # Get GitHub token
+              logger.info(f"Retrieving GitHub token from Secrets Manager - Secret: {secret_name}")
+              try:
+                  token = secrets.get_secret_value(SecretId=secret_name)["SecretString"]
+                  logger.info("Successfully retrieved GitHub token")
+              except Exception as e:
+                  logger.error(f"Failed to retrieve GitHub token: {str(e)}")
+                  raise
+              
+              # GitHub API payload
+              data = {
+                  "event_type": "eks-cluster-created",
+                  "client_payload": {
+                      "cluster_name": cluster_name,
+                      "region": region,
+                      "account": account
+                  }
+              }
+
+              api_url = f"https://api.github.com/repos/{owner}/{repo}/dispatches"
+              logger.info(f"Sending GitHub dispatch event to: {api_url}")
+              try:
+                  r = http.request(
+                      'POST',
+                      api_url,
+                      body=json.dumps(data).encode("utf-8"),
+                      headers={
+                          "Authorization": f"token {json.loads(token)['token']}",
+                          "Content-Type": "application/json",
+                          "Accept": "application/vnd.github+json"
+                      }
+                  )
+                  logger.info(f"GitHub API response - Status: {r.status}")
+                  if r.status >= 200 and r.status < 300:
+                      logger.info("Successfully dispatched GitHub event")
+                  else:
+                      logger.error(f"GitHub API error - Status: {r.status}, Response: {r.data.decode('utf-8')}")
+              except Exception as e:
+                  logger.error(f"Failed to send GitHub dispatch event: {str(e)}")
+                  raise
+              
+              logger.info("Lambda function completed successfully")
+
+  TriggerRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: TriggerGitHubOnEKS
+      EventBusName: !Ref EventBus
+      EventPattern:
+        source: ["aws.eks"]
+        detail-type: ["AWS API Call via CloudTrail"]
+        detail:
+          eventName: ["CreateCluster"]
+      Targets:
+        - Id: GitHubLambda
+          Arn: !GetAtt LambdaFunction.Arn
+          RoleArn: !GetAtt EventBridgeInvokeRole.Arn
+
+  EventBridgeInvokeRole:
+    Type: AWS::IAM::Role
+    Properties:
+      # RoleName: EventBridgeToLambdaInvokeRole
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: events.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: InvokeLambdaPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - lambda:InvokeFunction
+                Resource: !GetAtt LambdaFunction.Arn

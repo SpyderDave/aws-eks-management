@@ -1,0 +1,15 @@
+template:
+    type: file
+    path: helm-deploy-cloudability.yaml
+on_failure: ROLLBACK
+ignore: True
+parameters:
+    EventBus: !stack_output platform/eventbus.yaml::EventBusName
+    
+stack_tags:
+    application: platform 
+    environment: platform
+    service: aws-eks-management
+    service-owner: "platform-team@example.com"
+    confidentiality: none
+    managed-by: "cloudformation-lambda-stack-deployer-github"

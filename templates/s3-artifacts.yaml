@@ -1,0 +1,49 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Creates S3 Bucket for EKS Management Artifacts (Lambda Layers, etc.)
+
+Resources:
+
+  ### Artifact S3 Bucket
+  ArtifactBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub "eks-helm-artifacts-${AWS::AccountId}-${AWS::Region}"
+      VersioningConfiguration:
+        Status: Enabled
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+            BucketKeyEnabled: true
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+
+  ### SSM Parameter to store bucket name
+  BucketNameParameter:
+    Type: AWS::SSM::Parameter
+    DependsOn: ArtifactBucket
+    Properties:
+      Name: /platform/eks-management/artifact-bucket-name
+      Description: Name of the S3 bucket for EKS management artifacts
+      Type: String
+      Value: !Ref ArtifactBucket
+      Tags:
+        application: platform
+        environment: platform
+        service: aws-eks-management
+
+Outputs:
+  ArtifactBucketName:
+    Description: The name of the S3 artifacts bucket
+    Value: !Ref ArtifactBucket
+    Export:
+      Name: !Sub "${AWS::StackName}-ArtifactBucket"
+  
+  ArtifactBucketArn:
+    Description: The ARN of the S3 artifacts bucket
+    Value: !GetAtt ArtifactBucket.Arn
+    Export:
+      Name: !Sub "${AWS::StackName}-ArtifactBucketArn"

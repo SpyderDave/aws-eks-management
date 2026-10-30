@@ -1,0 +1,34 @@
+global:
+  wizApiToken:
+    secret:
+      create: false # We create it manually
+      name: "wiz-api-token"
+    clientEndpoint: "" # Set to "gov" if your tenant is hosted at https://gov.wiz.io , otherwise leave blank.
+
+wiz-kubernetes-connector:
+  enabled: true
+  autoCreateConnector:
+    connectorName: "my-tests-cluster"
+  wiz-broker:
+    enabled: true
+
+wiz-sensor:
+  enabled: true
+  imagePullSecret:
+    create: false # We create it manually
+    name: "sensor-image-pull"
+
+wiz-admission-controller:
+  enabled: true
+
+  # Configure Kubernetes Audit Log Collection
+  # This webhook sends the audit logs to Wiz, and should never block any requests. Learn more in the docs, https://docs.wiz.io/wiz-docs/docs/kubernetes-audit-log-collector.
+  kubernetesAuditLogsWebhook:
+    enabled: true
+  opaWebhook:
+    enabled: true
+  # Enforce Image Trust with Wiz AC and CLI. Learn more in the docs, https://docs.wiz.io/wiz-docs/docs/ac-image-trust-cicd.
+  imageIntegrityWebhook:
+    enabled: false
+    policies:
+      - my-image-trust-policy

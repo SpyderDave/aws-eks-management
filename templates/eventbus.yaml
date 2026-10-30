@@ -1,0 +1,47 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Creates AWS Event Bus to Receive EKS events
+
+Parameters:
+  OrgId:
+    Type: String
+
+Resources:
+
+  ### Artifact S3 Bucket
+  ArtifactBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub "eks-helm-artifacts-${AWS::AccountId}-${AWS::Region}"
+
+  EventBus:
+    Type: AWS::Events::EventBus
+    Properties:
+      Name: eks-mgmt-bus
+      LogConfig:
+        IncludeDetail: FULL
+        Level: INFO 
+
+  EventBusPolicy:
+    Type: AWS::Events::EventBusPolicy
+    Properties:
+      EventBusName: !Ref EventBus
+      StatementId: !Sub "${AWS::StackName}-AllowOrgAccounts"
+      Action: "events:PutEvents"
+      Principal: "*"
+      Condition:
+        Type: "StringEquals"
+        Key: "aws:PrincipalOrgID"
+        Value: !Ref OrgId
+
+  MyEventBusLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: "/aws/events/eks-mgmt-bus"
+      RetentionInDays: 7 
+
+
+Outputs:
+  EventBusName: 
+    Description: The Name of the Eventbus 
+    Value: !Ref EventBus
+  

@@ -1,0 +1,13 @@
+template:
+    type: file
+    path: s3-artifacts.yaml
+on_failure: ROLLBACK
+ignore: false
+
+stack_tags:
+    application: platform 
+    environment: platform
+    service: aws-eks-management
+    service-owner: "platform-team@example.com"
+    confidentiality: none
+    managed-by: "cloudformation-lambda-stack-deployer-github"

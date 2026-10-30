@@ -1,0 +1,8 @@
+charts:
+  - name: nginx
+    repo: https://charts.bitnami.com/bitnami
+    version: 15.0.0
+    values: charts/nginx-values.yaml
+  - name: prometheus
+    repo: https://prometheus-community.github.io/helm-charts
+    version: 25.0.0
